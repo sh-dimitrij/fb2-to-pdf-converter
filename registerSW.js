@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/fb2-to-pdf-converter/sw.js', { scope: '/fb2-to-pdf-converter/' })})}
