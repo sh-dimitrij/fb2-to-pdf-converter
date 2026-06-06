@@ -145,6 +145,45 @@ function drawChapterBox(pdf, text, opts) {
   return { yAfter: margin + boxH + lh * 0.8, pageNum, boxTop: margin, boxH }
 }
 
+// ─── Subsection header box (depth > 0, inline, no page break) ────────────────
+// Returns { yAfter, pageNum, entryY }
+function drawSubsectionBox(pdf, text, opts, state) {
+  const { margin, lineHeight, pageW, pageH } = opts
+  const usableW = pageW - margin * 2
+  // Slightly smaller font per depth level, min fontSize
+  const fs = Math.max(opts.chapterFontSize - (state._depth || 1) * 1.5, opts.fontSize)
+  pdf.setFont(FONT, 'bold')
+  pdf.setFontSize(fs)
+  const lh = (fs / 72) * 25.4 * lineHeight
+  const lines = pdf.splitTextToSize(text, usableW - 8)
+  const boxH = lh * lines.length + 6
+
+  // Gap above
+  const gapAbove = lh * 0.8
+  if (state.y + gapAbove + boxH > pageH - margin) {
+    pdf.addPage()
+    state.y = margin
+  } else {
+    state.y += gapAbove
+  }
+
+  const pageNum = pdf.internal.getCurrentPageInfo().pageNumber
+  const entryY = state.y
+
+  pdf.setFillColor(245, 245, 245)
+  pdf.setDrawColor(0, 0, 0)
+  pdf.setLineWidth(0.3)
+  pdf.rect(margin, state.y, usableW, boxH, 'FD')
+
+  let ty = state.y + 4 + lh * 0.75
+  pdf.setTextColor(0, 0, 0)
+  for (const line of lines) { pdf.text(line, margin + 4, ty); ty += lh }
+
+  state.y += boxH + lh * 0.5
+
+  return { pageNum, entryY }
+}
+
 // ─── TOC helpers ──────────────────────────────────────────────────────────────
 function spansText(spans) { return spans ? spans.map(s => s.text).join('') : '' }
 
@@ -314,22 +353,12 @@ async function renderSection(pdf, section, opts, state) {
         state._tocEntries = state._tocEntries || []
         state._tocEntries.push({ title: text, depth: 0, pageNum, y: boxTop })
       } else {
-        state.y += lh * 0.5
-        const sz = fontSize + 1
-        const subLH = (sz / 72) * 25.4 * lineHeight
-        if (state.y + subLH > pageH - margin) { pdf.addPage(); state.y = margin }
-        const pageNum = pdf.internal.getCurrentPageInfo().pageNumber
-        const entryY = state.y
+        // depth > 0: box in the text flow (no new page)
+        state._depth = section.depth
+        const { pageNum, entryY } = drawSubsectionBox(pdf, text, opts, state)
         pdf.outline.add(null, text, { pageNumber: pageNum, y: entryY })
-        // Also add to TOC entries with depth
         state._tocEntries = state._tocEntries || []
         state._tocEntries.push({ title: text, depth: section.depth, pageNum, y: entryY })
-        pdf.setFont(FONT, 'bold'); pdf.setFontSize(sz); pdf.setTextColor(0, 0, 0)
-        for (const line of pdf.splitTextToSize(text, usableW)) {
-          if (state.y + subLH > pageH - margin) { pdf.addPage(); state.y = margin }
-          pdf.text(line, margin, state.y); state.y += subLH
-        }
-        state.y += lh * 0.3
       }
     }
   }
