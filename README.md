@@ -1,16 +1,105 @@
-# React + Vite
+# 📚 FB2 → PDF Converter
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> Конвертируй электронные книги прямо в браузере. Без серверов. Без регистрации. Без следов.
 
-Currently, two official plugins are available:
+**[→ Открыть приложение](https://sh-dimitrij.github.io/fb2-to-pdf-converter)**
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## Зачем это нужно
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Купил книгу в FB2, а читалка хочет PDF. Скачал с Флибусты, а принтер не понимает формат. Знакомо? Большинство онлайн-конвертеров загружают твой файл на чужой сервер — и кто знает, что с ним происходит дальше.
 
-## Expanding the ESLint configuration
+Этот конвертер работает **полностью в браузере**. Файл не покидает твоё устройство ни на байт.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+---
+
+## Возможности
+
+### Конвертация
+- 📄 Поддержка `.fb2` файлов, включая кириллицу и Windows-1251
+- 📦 Пакетная конвертация — загружай сколько угодно файлов сразу
+- 🖼 Автоматическое извлечение обложки из файла
+- 📑 Аннотация на отдельной странице
+- 🗂 Кликабельное оглавление с переходами по главам
+- 🔖 PDF-закладки (навигация по боковой панели ридера)
+
+### Оформление
+- Заголовки всех уровней в рамках с серым фоном
+- Выравнивание текста по ширине с отступом первой строки
+- Разделители `* * *` с рамкой
+- Поддержка **жирного**, _курсива_ и **_жирного курсива_** прямо внутри абзацев
+- Стихи, эпиграфы, цитаты — каждый тип со своим оформлением
+
+### Настройки вывода
+| Параметр | Варианты |
+|---|---|
+| Формат страницы | A4, A5, Letter |
+| Размер шрифта | 9–18 пт (по умолчанию 15 пт) |
+| Поля | 10–35 мм (по умолчанию 25 мм) |
+| Межстрочный интервал | Одинарный / Полуторный / Двойной |
+
+### Превью перед скачиванием
+Включи свитч **«Превью перед скачиванием»** — и перед сохранением увидишь, как выглядит книга. Можно листать все сконвертированные файлы, скачать нужные по одному или все сразу одной кнопкой.
+
+---
+
+## Стек
+
+```
+React 18 + Vite 6
+jsPDF          — генерация PDF в браузере
+pdfjs-dist     — рендер превью страниц
+Liberation Serif TTF — встроенный шрифт с полной кириллицей
+GitHub Actions — автодеплой на gh-pages при пуше в master
+```
+
+---
+
+## Локальный запуск
+
+```bash
+git clone https://github.com/sh-dimitrij/fb2-to-pdf-converter.git
+cd fb2-to-pdf-converter
+npm install
+npm run dev
+```
+
+Откроется на `http://localhost:5173/fb2-to-pdf-converter/`
+
+---
+
+## Деплой
+
+Автоматический деплой настроен через GitHub Actions. При каждом пуше в ветку `master`:
+
+1. Запускается `npm run build`
+2. Папка `dist` публикуется в ветку `gh-pages`
+3. Сайт обновляется на `https://sh-dimitrij.github.io/fb2-to-pdf-converter`
+
+---
+
+## Структура проекта
+
+```
+src/
+├── components/
+│   ├── DropZone          # Drag & drop загрузка файлов
+│   ├── FileList          # Список файлов с прогрессом
+│   ├── ConversionOptions # Настройки конвертации
+│   ├── ConvertButton     # Кнопка запуска
+│   ├── PdfPreview        # Модал превью с навигацией
+│   └── ...
+├── hooks/
+│   └── useConverter      # Логика конвертации и управления файлами
+└── utils/
+    ├── fb2Parser.js      # Парсер FB2/XML с определением кодировки
+    ├── pdfGenerator.js   # Генератор PDF через jsPDF
+    └── fonts.js          # Liberation Serif TTF в base64
+```
+
+---
+
+## Лицензия
+
+MIT — делай что хочешь.
