@@ -1,0 +1,42 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lato:wght@300;400;700&display=swap');
+
+:root {
+  --accent: #8b3a0f;
+  --accent-light: #c4622a;
+  --accent-hover-bg: rgba(139, 58, 15, 0.05);
+  --bg: #f7f0e6;
+  --surface-2: #ede4d4;
+  --surface-3: rgba(196, 174, 140, 0.22);
+  --text-primary: #1a1208;
+  --text-muted: #7a6a52;
+  --border: #cbb89a;
+  --success-color: #3a6b2a;
+  --success-border: #8ec67e;
+  --error-color: #8b1a1a;
+  --error-border: #e2a0a0;
+  --error-bg: #fdf0f0;
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-body: 'Lato', system-ui, sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 16px; }
+
+body {
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-weight: 400;
+  line-height: 1.6;
+  min-height: 100vh;
+  background-image:
+    radial-gradient(ellipse at 15% 10%, rgba(184,134,11,0.07) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 90%, rgba(139,58,15,0.06) 0%, transparent 55%);
+}
+
+a { color: var(--accent-light); text-decoration: none; }
+a:hover { text-decoration: underline; }
+button { font-family: var(--font-body); }
+
+#root { display: flex; flex-direction: column; min-height: 100vh; }
