@@ -6,8 +6,8 @@ const urlsToCache = [
   '/fb2-to-pdf-converter/index.html',
   '/fb2-to-pdf-converter/manifest.json',
   '/fb2-to-pdf-converter/favicon.svg',
-  '/fb2-to-pdf-converter/icon-192.png',
-  '/fb2-to-pdf-converter/icon-512.png'
+  '/fb2-to-pdf-converter/icons/icon-192.png',
+  '/fb2-to-pdf-converter/icons/icon-512.png'
 ];
 
 // Установка service worker и кэширование файлов
