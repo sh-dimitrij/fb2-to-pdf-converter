@@ -21,15 +21,21 @@ export function useConverter() {
 
   const removeItem = useCallback((id) => setItems(prev => prev.filter(i => i.id !== id)), [])
   const clearAll = useCallback(() => setItems([]), [])
-  const updateItem = (id, patch) => setItems(prev => prev.map(i => i.id === id ? { ...i, ...patch } : i))
+
+  const updateItem = useCallback((id, patch) => {
+    setItems(prev => prev.map(i => i.id === id ? { ...i, ...patch } : i))
+  }, [])
 
   const convertAll = useCallback(async (options) => {
+    // Only convert files that are IDLE or ERROR — skip DONE ones
     const pending = items.filter(i => i.status === STATUS.IDLE || i.status === STATUS.ERROR)
-    if (!pending.length) return
+    if (!pending.length || isConverting) return
+
     setIsConverting(true)
 
     for (const item of pending) {
       updateItem(item.id, { status: STATUS.PARSING, progress: 0, error: null })
+
       let book
       try {
         const buffer = await readFileAsBuffer(item.file)
@@ -40,6 +46,7 @@ export function useConverter() {
         updateItem(item.id, { status: STATUS.ERROR, error: `Ошибка разбора: ${err.message}` })
         continue
       }
+
       try {
         const pdf = await generatePDF(book, options, pct => updateItem(item.id, { progress: pct }))
         pdf.save(`${safeName(book.title)}.pdf`)
@@ -48,8 +55,9 @@ export function useConverter() {
         updateItem(item.id, { status: STATUS.ERROR, error: `Ошибка генерации: ${err.message}` })
       }
     }
+
     setIsConverting(false)
-  }, [items])
+  }, [items, isConverting, updateItem])
 
   return { items, isConverting, addFiles, removeItem, clearAll, convertAll }
 }

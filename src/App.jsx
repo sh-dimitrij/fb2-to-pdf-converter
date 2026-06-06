@@ -11,9 +11,9 @@ import styles from './App.module.css'
 
 const DEFAULT_OPTIONS = {
   pageSize: 'a4',
-  fontSize: 12,
-  margin: 20,
-  lineHeight: '1.5',
+  fontSize: 15,
+  margin: 25,
+  lineHeight: '1.3',
   includeCover: true,
   includeTOC: true,
   includeAnnotation: true,
@@ -31,7 +31,7 @@ export default function App() {
     <>
       <Header />
       <main className={styles.main}>
-        <DropZone onFiles={addFiles} disabled={isConverting} />
+        <DropZone onFiles={addFiles} disabled={false} />
         <FileList items={items} onRemove={removeItem} onClearAll={clearAll} />
         <ConversionOptions options={options} onChange={setOptions} disabled={isConverting} />
         <ConvertButton items={items} isConverting={isConverting} onClick={handleConvert} />
