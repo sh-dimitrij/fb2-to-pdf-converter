@@ -145,12 +145,12 @@ function drawChapterBox(pdf, text, opts) {
   return { yAfter: margin + boxH + lh * 0.8, pageNum, boxTop: margin, boxH }
 }
 
-// ─── Subsection header box (depth > 0, inline, no page break) ────────────────
-// Returns { yAfter, pageNum, entryY }
-function drawSubsectionBox(pdf, text, opts, state) {
+// ─── Subsection header box (depth > 0) ───────────────────────────────────────
+// newPage=true → always start new page; newPage=false → flow inline
+// Returns { pageNum, entryY }
+function drawSubsectionBox(pdf, text, opts, state, newPage) {
   const { margin, lineHeight, pageW, pageH } = opts
   const usableW = pageW - margin * 2
-  // Slightly smaller font per depth level, min fontSize
   const fs = Math.max(opts.chapterFontSize - (state._depth || 1) * 1.5, opts.fontSize)
   pdf.setFont(FONT, 'bold')
   pdf.setFontSize(fs)
@@ -158,13 +158,19 @@ function drawSubsectionBox(pdf, text, opts, state) {
   const lines = pdf.splitTextToSize(text, usableW - 8)
   const boxH = lh * lines.length + 8
 
-  // Gap above
-  const gapAbove = lh * 0.8
-  if (state.y + gapAbove + boxH > pageH - margin) {
+  if (newPage) {
+    // Always new page — same as chapter header but at current margin
     pdf.addPage()
     state.y = margin
   } else {
-    state.y += gapAbove
+    // Inline — just add gap above; page break only if no room
+    const gapAbove = lh * 0.8
+    if (state.y + gapAbove + boxH > pageH - margin) {
+      pdf.addPage()
+      state.y = margin
+    } else {
+      state.y += gapAbove
+    }
   }
 
   const pageNum = pdf.internal.getCurrentPageInfo().pageNumber
@@ -235,6 +241,7 @@ async function renderBlocks(pdf, blocks, opts, state) {
   for (const block of blocks) {
     if (block.type === 'p') {
       if (!spansText(block.spans).trim()) continue
+      state._lastWasHeader = false  // real content resets header flag
       checkPage(lh)
       state.y = writeParagraph(pdf, block.spans, margin, usableW, state.y, opts, paraIndent)
 
@@ -337,6 +344,11 @@ async function renderBlocks(pdf, blocks, opts, state) {
 }
 
 // ─── Section renderer ─────────────────────────────────────────────────────────
+// Returns true if blocks contain any real content (not just nested sections)
+function hasRealContent(blocks) {
+  return blocks.some(b => b.type !== 'section')
+}
+
 async function renderSection(pdf, section, opts, state) {
   const { margin, fontSize, lineHeight, pageW, pageH } = opts
   const usableW = pageW - margin * 2
@@ -346,23 +358,34 @@ async function renderSection(pdf, section, opts, state) {
     const text = spansText(section.titleSpans).trim()
     if (text) {
       if (section.depth === 0) {
+        // Chapter: always new page
         pdf.addPage()
         const { yAfter, pageNum, boxTop } = drawChapterBox(pdf, text, opts)
         state.y = yAfter
         pdf.outline.add(null, text, { pageNumber: pageNum, y: boxTop })
         state._tocEntries = state._tocEntries || []
         state._tocEntries.push({ title: text, depth: 0, pageNum, y: boxTop })
+        state._lastWasHeader = true
       } else {
-        // depth > 0: box in the text flow (no new page)
+        // depth > 0: new page UNLESS previous block was also a header (no content in between)
         state._depth = section.depth
-        const { pageNum, entryY } = drawSubsectionBox(pdf, text, opts, state)
+        const newPage = !state._lastWasHeader
+        const { pageNum, entryY } = drawSubsectionBox(pdf, text, opts, state, newPage)
         pdf.outline.add(null, text, { pageNumber: pageNum, y: entryY })
         state._tocEntries = state._tocEntries || []
         state._tocEntries.push({ title: text, depth: section.depth, pageNum, y: entryY })
+        state._lastWasHeader = true
       }
     }
   }
+
+  // Render blocks; track if any real content was rendered to update _lastWasHeader
   await renderBlocks(pdf, section.blocks, opts, state)
+
+  // If this section had real content (paragraphs etc.), next header should go to new page
+  if (hasRealContent(section.blocks)) {
+    state._lastWasHeader = false
+  }
 }
 
 // ─── Main export ──────────────────────────────────────────────────────────────
