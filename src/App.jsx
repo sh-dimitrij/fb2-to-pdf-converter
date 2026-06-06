@@ -22,8 +22,8 @@ const DEFAULT_OPTIONS = {
 
 export default function App() {
   const [options, setOptions] = useState(DEFAULT_OPTIONS)
-  const [showPreview, setShowPreview] = useState(true)      // свитч превью
-  const [previewOpen, setPreviewOpen] = useState(false)      // модал открыт?
+  const [showPreview, setShowPreview] = useState(true) 
+  const [previewOpen, setPreviewOpen] = useState(false)
   const [previewIndex, setPreviewIndex] = useState(0)        // текущий файл в превью
   const [downloadedIds, setDownloadedIds] = useState(new Set())
   const prevReadyCount = useRef(0)
