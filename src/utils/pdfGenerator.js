@@ -156,7 +156,7 @@ function drawSubsectionBox(pdf, text, opts, state) {
   pdf.setFontSize(fs)
   const lh = (fs / 72) * 25.4 * lineHeight
   const lines = pdf.splitTextToSize(text, usableW - 8)
-  const boxH = lh * lines.length + 6
+  const boxH = lh * lines.length + 8
 
   // Gap above
   const gapAbove = lh * 0.8
@@ -179,7 +179,7 @@ function drawSubsectionBox(pdf, text, opts, state) {
   pdf.setTextColor(0, 0, 0)
   for (const line of lines) { pdf.text(line, margin + 4, ty); ty += lh }
 
-  state.y += boxH + lh * 0.5
+  state.y += boxH + lh * 1
 
   return { pageNum, entryY }
 }
