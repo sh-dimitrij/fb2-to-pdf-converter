@@ -10,6 +10,15 @@ export default defineConfig({
   build: {
     rollupOptions: {
       external: [],
+      output: {
+        // Убеждаемся, что sw.js копируется в корень сборки
+        assetFileNames: (assetInfo) => {
+          if (assetInfo.name === 'sw.js') {
+            return 'sw.js';
+          }
+          return 'assets/[name]-[hash][extname]';
+        }
+      }
     },
   },
 })

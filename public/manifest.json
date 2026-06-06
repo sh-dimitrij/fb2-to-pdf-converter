@@ -1,0 +1,25 @@
+{
+  "name": "FB2 to PDF Converter",
+  "short_name": "FB2 → PDF",
+  "description": "Конвертируйте FB2 книги в PDF прямо в браузере",
+  "start_url": "/fb2-to-pdf-converter/",
+  "scope": "/fb2-to-pdf-converter/",
+  "display": "standalone",
+  "theme_color": "#8b3a0f",
+  "background_color": "#f7f0e6",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/fb2-to-pdf-converter/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/fb2-to-pdf-converter/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
