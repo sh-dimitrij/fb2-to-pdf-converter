@@ -11,11 +11,12 @@ const STATUS_LABEL = {
   [STATUS.IDLE]: null,
   [STATUS.PARSING]: 'Разбор файла…',
   [STATUS.GENERATING]: 'Генерация PDF…',
-  [STATUS.DONE]: 'Готово',
+  [STATUS.READY]: 'Готово',
+  [STATUS.DONE]: 'Скачано',
   [STATUS.ERROR]: 'Ошибка',
 }
 
-export function FileList({ items, onRemove, onClearAll }) {
+export function FileList({ items, onRemove, onClearAll, onPreview, downloadedIds }) {
   if (!items.length) return null
 
   return (
@@ -65,7 +66,7 @@ export function FileList({ items, onRemove, onClearAll }) {
             </div>
 
             <div className={styles.statusIcon} aria-hidden="true">
-              {item.status === STATUS.DONE && (
+              {(item.status === STATUS.DONE || item.status === STATUS.READY) && (
                 <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/>
                 </svg>
@@ -80,7 +81,22 @@ export function FileList({ items, onRemove, onClearAll }) {
               )}
             </div>
 
-            {item.status === STATUS.IDLE || item.status === STATUS.ERROR ? (
+            {item.status === STATUS.READY && onPreview && (
+              <button
+                className={styles.previewBtn}
+                onClick={() => onPreview(item.id)}
+                type="button"
+                title="Открыть превью"
+              >
+                <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+                Превью
+              </button>
+            )}
+
+            {(item.status === STATUS.IDLE || item.status === STATUS.ERROR || item.status === STATUS.DONE || item.status === STATUS.READY) && (
               <button
                 className={styles.removeBtn}
                 onClick={() => onRemove(item.id)}
@@ -91,7 +107,7 @@ export function FileList({ items, onRemove, onClearAll }) {
                   <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
                 </svg>
               </button>
-            ) : null}
+            )}
           </li>
         ))}
       </ul>

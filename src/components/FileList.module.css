@@ -219,3 +219,29 @@
 }
 
 
+
+.previewBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 3px;
+  padding: 0.3rem 0.7rem;
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.previewBtn:hover { background: var(--accent-light); }
+
+.previewBtn svg {
+  width: 14px;
+  height: 14px;
+  stroke: white;
+}

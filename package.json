@@ -12,6 +12,7 @@
   "dependencies": {
     "@fontsource/pt-serif": "^5.2.8",
     "jspdf": "^4.2.1",
+    "pdfjs-dist": "^6.0.227",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
   },
@@ -27,5 +28,3 @@
     "vite": "^8.0.12"
   }
 }
-
-

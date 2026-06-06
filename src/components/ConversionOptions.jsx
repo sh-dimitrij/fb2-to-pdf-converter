@@ -1,6 +1,6 @@
 import styles from './ConversionOptions.module.css'
 
-export function ConversionOptions({ options, onChange, disabled }) {
+export function ConversionOptions({ options, onChange, disabled, showPreview, onTogglePreview }) {
   const set = (key) => (e) => {
     const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value
     onChange({ ...options, [key]: (key === 'fontSize' || key === 'margin') ? Number(value) : value })
@@ -54,6 +54,19 @@ export function ConversionOptions({ options, onChange, disabled }) {
           <input type="checkbox" checked={options.includeAnnotation} onChange={set('includeAnnotation')} disabled={disabled} className={styles.checkbox} />
           Аннотация
         </label>
+      </div>
+
+      <div className={styles.previewToggleRow}>
+        <span className={styles.previewToggleLabel}>Превью перед скачиванием</span>
+        <button
+          type="button"
+          className={`${styles.toggle} ${showPreview ? styles.toggleOn : ''}`}
+          onClick={() => onTogglePreview(!showPreview)}
+          aria-pressed={showPreview}
+          role="switch"
+        >
+          <span className={styles.toggleThumb}/>
+        </button>
       </div>
     </section>
   )

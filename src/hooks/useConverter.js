@@ -1,12 +1,21 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { parseFB2, decodeFB2 } from '../utils/fb2Parser'
 import { generatePDF, safeName } from '../utils/pdfGenerator'
 
-export const STATUS = { IDLE: 'idle', PARSING: 'parsing', GENERATING: 'generating', DONE: 'done', ERROR: 'error' }
+export const STATUS = {
+  IDLE: 'idle',
+  PARSING: 'parsing',
+  GENERATING: 'generating',
+  READY: 'ready',   // converted, blob ready, not yet downloaded
+  DONE: 'done',     // downloaded
+  ERROR: 'error',
+}
 
 export function useConverter() {
   const [items, setItems] = useState([])
   const [isConverting, setIsConverting] = useState(false)
+  // All ready blobs: { id, blob, fileName, bookTitle }[]
+  const blobsRef = useRef({})  // id -> { blob, fileName }
 
   const addFiles = useCallback((newFiles) => {
     setItems(prev => {
@@ -19,18 +28,44 @@ export function useConverter() {
     })
   }, [])
 
-  const removeItem = useCallback((id) => setItems(prev => prev.filter(i => i.id !== id)), [])
-  const clearAll = useCallback(() => setItems([]), [])
+  const removeItem = useCallback((id) => {
+    setItems(prev => prev.filter(i => i.id !== id))
+    delete blobsRef.current[id]
+  }, [])
+
+  const clearAll = useCallback(() => {
+    setItems([])
+    blobsRef.current = {}
+  }, [])
 
   const updateItem = useCallback((id, patch) => {
     setItems(prev => prev.map(i => i.id === id ? { ...i, ...patch } : i))
   }, [])
 
+  const downloadItem = useCallback((id) => {
+    const entry = blobsRef.current[id]
+    if (!entry) return
+    const url = URL.createObjectURL(entry.blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = entry.fileName
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 10000)
+    updateItem(id, { status: STATUS.DONE })
+  }, [updateItem])
+
+  const downloadAll = useCallback(() => {
+    Object.keys(blobsRef.current).forEach(id => downloadItem(id))
+  }, [downloadItem])
+
+  // Returns all READY items info for preview
+  const getReadyItems = useCallback(() => {
+    return Object.entries(blobsRef.current).map(([id, entry]) => ({ id, ...entry }))
+  }, [])
+
   const convertAll = useCallback(async (options) => {
-    // Only convert files that are IDLE or ERROR — skip DONE ones
     const pending = items.filter(i => i.status === STATUS.IDLE || i.status === STATUS.ERROR)
     if (!pending.length || isConverting) return
-
     setIsConverting(true)
 
     for (const item of pending) {
@@ -49,8 +84,10 @@ export function useConverter() {
 
       try {
         const pdf = await generatePDF(book, options, pct => updateItem(item.id, { progress: pct }))
-        pdf.save(`${safeName(book.title)}.pdf`)
-        updateItem(item.id, { status: STATUS.DONE, progress: 100 })
+        const blob = pdf.output('blob')
+        const fileName = `${safeName(book.title)}.pdf`
+        blobsRef.current[item.id] = { blob, fileName, bookTitle: book.title }
+        updateItem(item.id, { status: STATUS.READY, progress: 100 })
       } catch (err) {
         updateItem(item.id, { status: STATUS.ERROR, error: `Ошибка генерации: ${err.message}` })
       }
@@ -59,7 +96,12 @@ export function useConverter() {
     setIsConverting(false)
   }, [items, isConverting, updateItem])
 
-  return { items, isConverting, addFiles, removeItem, clearAll, convertAll }
+  return {
+    items, isConverting,
+    addFiles, removeItem, clearAll, convertAll,
+    downloadItem, downloadAll, getReadyItems,
+    blobsRef,
+  }
 }
 
 function readFileAsBuffer(file) {
@@ -70,5 +112,3 @@ function readFileAsBuffer(file) {
     reader.readAsArrayBuffer(file)
   })
 }
-
-

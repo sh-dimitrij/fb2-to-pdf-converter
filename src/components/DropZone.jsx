@@ -50,7 +50,7 @@ export function DropZone({ onFiles, disabled }) {
         {isDragging ? 'Отпустите файлы' : 'Перетащите файлы .fb2 сюда'}
       </p>
       <p className={styles.hint}>
-        или <span className={styles.link}>нажмите для выбора</span> · поддерживается несколько файлов
+        или <span className={styles.link}>нажмите для выбора</span> - поддерживается несколько файлов
       </p>
     </div>
   )
