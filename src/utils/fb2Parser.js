@@ -96,13 +96,32 @@ function processSection(el, depth) {
 
     if (tag === 'p') {
       const spans = collectSpans(node)
-      if (spans.map(s => s.text).join('').trim()) blocks.push({ type: 'p', spans })
+      const rawText = spans.map(s => s.text).join('').trim()
+      console.log('block text:', JSON.stringify(rawText), 'isSep:', /^\*\s*\*\s*\*$/.test(rawText))
+      if (!rawText) continue
+      if (rawText.length < 10) {
+        console.log('SHORT_P:', JSON.stringify(rawText), [...rawText].map(c => c.charCodeAt(0).toString(16)))
+      }
+      // Авторский разделитель — параграф содержащий только * * * (в любых вариантах)
+      if (/^\*\s*\*\s*\*$/.test(rawText)) {
+        blocks.push({ type: 'separator' })
+      } else {
+        blocks.push({ type: 'p', spans })
+      }
+
+
 
     } else if (tag === 'empty-line') {
       blocks.push({ type: 'empty-line' })
 
     } else if (tag === 'subtitle') {
-      blocks.push({ type: 'subtitle', spans: collectSpans(node) })
+      const spans = collectSpans(node)
+      const rawText = spans.map(s => s.text).join('').trim()
+      if (/^\*[\s\u00a0]*\*[\s\u00a0]*\*$/.test(rawText)) {
+        blocks.push({ type: 'separator' })
+      } else {
+        blocks.push({ type: 'subtitle', spans })
+      }
 
     } else if (tag === 'epigraph') {
       const lines = [...node.querySelectorAll('p')].map(p => collectSpans(p))

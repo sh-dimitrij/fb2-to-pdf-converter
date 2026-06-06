@@ -199,22 +199,26 @@ async function renderBlocks(pdf, blocks, opts, state) {
       checkPage(lh)
       state.y = writeParagraph(pdf, block.spans, margin, usableW, state.y, opts, paraIndent)
 
-    } else if (block.type === 'empty-line') {
-      // * * * with white-background box, centred
-      const boxH = lh * 1.2
-      const boxW = 32
-      const bx = margin + (usableW - boxW) / 2
-      checkPage(lh * 2.4)
-      state.y += lh * 0.5
+    } else if (block.type === 'empty-line' || block.type === 'separator') {
+      // * * * — separator box centred, spanning full text width
+      const sepFontSize = fontSize
+      const sepLH = (sepFontSize / 72) * 25.4 * lineHeight
+      const boxH = sepLH * 0.55 + 6   // было: * 0.85 + 6
+      const gapAbove = 0               // было: lh * 1.0
+      const gapBelow = lh * 0.8        // было: lh * 1.0
+      checkPage(gapAbove + boxH + gapBelow)
+      state.y += gapAbove
       pdf.setFillColor(255, 255, 255)
       pdf.setDrawColor(0, 0, 0)
-      pdf.setLineWidth(0.35)
-      pdf.rect(bx, state.y - lh * 0.75, boxW, boxH, 'FD')
+      pdf.setLineWidth(0.4)
+      pdf.rect(margin, state.y, usableW, boxH, 'FD')
       pdf.setFont(FONT, 'normal')
-      pdf.setFontSize(fontSize)
+      pdf.setFontSize(sepFontSize)
       pdf.setTextColor(0, 0, 0)
-      pdf.text('* * *', margin + usableW / 2, state.y, { align: 'center' })
-      state.y += lh * 0.9
+      const sepW = pdf.getTextWidth('* * *')
+      const sepX = margin + (usableW - sepW) / 2
+      pdf.text('* * *', sepX, state.y + boxH * 0.68)
+      state.y += boxH + gapBelow
 
     } else if (block.type === 'subtitle') {
       const text = spansText(block.spans).trim()
@@ -223,6 +227,7 @@ async function renderBlocks(pdf, blocks, opts, state) {
       checkPage(lh)
       state.y = writeText(pdf, text, margin, usableW, state.y, opts, 'bold', null, 'left')
       state.y += lh * 0.2
+      
 
     } else if (block.type === 'epigraph') {
       state.y += lh * 0.5
@@ -312,8 +317,13 @@ async function renderSection(pdf, section, opts, state) {
         state.y += lh * 0.5
         const sz = fontSize + 1
         const subLH = (sz / 72) * 25.4 * lineHeight
+        if (state.y + subLH > pageH - margin) { pdf.addPage(); state.y = margin }
         const pageNum = pdf.internal.getCurrentPageInfo().pageNumber
-        pdf.outline.add(null, text, { pageNumber: pageNum, y: state.y })
+        const entryY = state.y
+        pdf.outline.add(null, text, { pageNumber: pageNum, y: entryY })
+        // Also add to TOC entries with depth
+        state._tocEntries = state._tocEntries || []
+        state._tocEntries.push({ title: text, depth: section.depth, pageNum, y: entryY })
         pdf.setFont(FONT, 'bold'); pdf.setFontSize(sz); pdf.setTextColor(0, 0, 0)
         for (const line of pdf.splitTextToSize(text, usableW)) {
           if (state.y + subLH > pageH - margin) { pdf.addPage(); state.y = margin }
@@ -419,28 +429,38 @@ export async function generatePDF(book, options, onProgress) {
     let ty = margin + boxH + lh
     for (const entry of tocEntries) {
       if (ty + lh > pageH - margin) break
-      const xOff = entry.depth > 0 ? 6 * entry.depth : 0
-      const entryFs = entry.depth === 0 ? fontSize + 1 : fontSize
+      // depth 0 = chapter (bold, no indent)
+      // depth 1 = section (normal, 8mm indent)
+      // depth 2+ = subsection (normal, 16mm+ indent, smaller font)
+      const xOff = entry.depth === 0 ? 0 : entry.depth === 1 ? 8 : 8 + (entry.depth - 1) * 6
+      const entryFs = entry.depth === 0 ? fontSize + 1 : entry.depth === 1 ? fontSize : fontSize - 1
       const entryLH = (entryFs / 72) * 25.4 * lineHeight
-      pdf.setFont(FONT, entry.depth === 0 ? 'bold' : 'normal')
+      const fontStyle = entry.depth === 0 ? 'bold' : 'normal'
+      pdf.setFont(FONT, fontStyle)
       pdf.setFontSize(entryFs); pdf.setTextColor(0, 0, 0)
 
       const pageLabel = String(entry.pageNum)
-      const titleMaxW = usableW - xOff - pdf.getTextWidth(pageLabel) - 4
+      pdf.setFont(FONT, 'normal'); pdf.setFontSize(entryFs)
+      const pageLabelW = pdf.getTextWidth(pageLabel)
+      pdf.setFont(FONT, fontStyle)
+      const titleMaxW = usableW - xOff - pageLabelW - 6
       const titleLine = pdf.splitTextToSize(entry.title, titleMaxW)[0]
 
-      // Page number right
-      pdf.text(pageLabel, margin + usableW, ty, { align: 'right' })
+      // Page number right — plain text, no link
+      pdf.setTextColor(0, 0, 0)
+      const pageNumX = margin + usableW - pageLabelW
+      pdf.text(pageLabel, pageNumX, ty)
 
       // Clickable chapter title
       pdf.setTextColor(0, 0, 130)
       pdf.textWithLink(titleLine, margin + xOff, ty, { pageNumber: entry.pageNum, x: margin, y: entry.y || margin })
 
-      // Dots
-      pdf.setTextColor(130, 130, 130)
+      // Dots between title and page number
+      pdf.setFont(FONT, 'normal'); pdf.setFontSize(entryFs)
+      pdf.setTextColor(150, 150, 150)
       const titleW = pdf.getTextWidth(titleLine)
       const dStart = margin + xOff + titleW + 2
-      const dEnd = margin + usableW - pdf.getTextWidth(pageLabel) - 3
+      const dEnd = pageNumX - 2
       const dotW = pdf.getTextWidth('.')
       if (dEnd > dStart + 4) {
         let dx = dStart
