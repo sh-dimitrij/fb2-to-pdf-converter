@@ -226,3 +226,4 @@ function parseFB2Doc(doc) {
   return { title: bookTitle, author, annotationBlocks, cover, sections, images }
 }
 
+

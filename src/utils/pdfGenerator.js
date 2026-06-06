@@ -524,12 +524,83 @@ export async function generatePDF(book, options, onProgress) {
 
     // movePage(from, to) — move one page at a time
     for (let i = 0; i < tocPageCount; i++) {
-      // After each move the indices shift, so always move the same logical page
-      // TOC pages are now at positions (contentLastPage+1) .. tocLastPage
-      // After moving i pages, the first remaining TOC page is at contentLastPage+1
       const fromPage = pdf.internal.getNumberOfPages() - tocPageCount + i + 1
       const toPage = insertAfter + 1 + i
       pdf.movePage(fromPage, toPage)
+    }
+
+    // After movePage, all content pages shifted by tocPageCount.
+    // Correct all pageNum references and re-render TOC pages with updated numbers.
+    for (const entry of tocEntries) {
+      entry.pageNum += tocPageCount
+    }
+
+    // Re-render TOC pages in-place with corrected page numbers
+    let reIdx = 0
+    for (let p = 0; p < tocPageCount; p++) {
+      const tocAbsPage = insertAfter + 1 + p
+      pdf.setPage(tocAbsPage)
+
+      // Clear page by drawing white rect over it
+      pdf.setFillColor(255, 255, 255)
+      pdf.setDrawColor(255, 255, 255)
+      pdf.rect(0, 0, pageW, pageH, 'F')
+
+      const isFirstTOCPage = p === 0
+      let ty = margin
+
+      if (isFirstTOCPage) {
+        const boxH = (chapterFontSize / 72) * 25.4 * lineHeight + 8
+        pdf.setFillColor(235, 235, 235); pdf.setDrawColor(0, 0, 0); pdf.setLineWidth(0.4)
+        pdf.rect(margin, margin, usableW, boxH, 'FD')
+        pdf.setFont(FONT, 'bold'); pdf.setFontSize(chapterFontSize); pdf.setTextColor(0, 0, 0)
+        pdf.text('Содержание', margin + 4, margin + boxH - 5)
+        ty = margin + boxH + lh
+      }
+
+      while (reIdx < tocEntries.length) {
+        const entry = tocEntries[reIdx]
+        const xOff = entry.depth === 0 ? 0 : entry.depth === 1 ? 8 : 8 + (entry.depth - 1) * 6
+        const entryFs = entry.depth === 0 ? fontSize + 1 : entry.depth === 1 ? fontSize : fontSize - 1
+        const entryLH = (entryFs / 72) * 25.4 * lineHeight
+        const fontStyle = entry.depth === 0 ? 'bold' : 'normal'
+
+        if (ty + entryLH > pageH - margin) break
+
+        pdf.setFont(FONT, 'normal'); pdf.setFontSize(entryFs)
+        const pageLabelW = pdf.getTextWidth(String(entry.pageNum))
+        pdf.setFont(FONT, fontStyle); pdf.setFontSize(entryFs)
+        const titleMaxW = usableW - xOff - pageLabelW - 6
+        const titleLine = pdf.splitTextToSize(entry.title, titleMaxW)[0]
+
+        // Page number
+        pdf.setTextColor(0, 0, 0)
+        const pageNumX = margin + usableW - pageLabelW
+        pdf.text(String(entry.pageNum), pageNumX, ty)
+
+        // Clickable title with corrected page number
+        pdf.setTextColor(0, 0, 130)
+        pdf.textWithLink(titleLine, margin + xOff, ty, {
+          pageNumber: entry.pageNum,
+          x: margin,
+          y: entry.y || margin,
+        })
+
+        // Dots
+        pdf.setFont(FONT, 'normal'); pdf.setFontSize(entryFs)
+        pdf.setTextColor(150, 150, 150)
+        const titleW = pdf.getTextWidth(titleLine)
+        const dStart = margin + xOff + titleW + 2
+        const dEnd = pageNumX - 2
+        const dotW = pdf.getTextWidth('.')
+        if (dEnd > dStart + 4) {
+          let dx = dStart
+          while (dx + dotW < dEnd) { pdf.text('.', dx, ty); dx += dotW + 0.3 }
+        }
+
+        ty += entryLH
+        reIdx++
+      }
     }
   }
 
@@ -570,4 +641,5 @@ export async function generatePDF(book, options, onProgress) {
 export function safeName(title) {
   return title.replace(/[<>:"/\\|?*\x00-\x1F]/g, '').replace(/\s+/g, '_').slice(0, 100).trim() || 'book'
 }
+
 
