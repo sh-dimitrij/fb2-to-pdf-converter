@@ -104,3 +104,4 @@ function pluralFiles(n) {
   if ([2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100)) return 'файла'
   return 'файлов'
 }
+

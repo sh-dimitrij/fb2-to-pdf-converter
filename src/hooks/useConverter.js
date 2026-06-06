@@ -70,3 +70,4 @@ function readFileAsBuffer(file) {
     reader.readAsArrayBuffer(file)
   })
 }
+

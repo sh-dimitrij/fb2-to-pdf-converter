@@ -399,89 +399,139 @@ export async function generatePDF(book, options, onProgress) {
     await renderBlocks(pdf, book.annotationBlocks, opts, state)
   }
 
-  // ── TOC placeholder page ──
-  let tocPageNum = null
-  if (includeTOC && collectTOC(book.sections).length > 0) {
-    pdf.addPage()
-    tocPageNum = pdf.internal.getCurrentPageInfo().pageNumber
-    state.y = margin
-  }
-
   onProgress(10)
 
-  // ── Content ──
+  // ── Content (first pass — no TOC yet) ──
   const total = book.sections.length || 1
   for (let i = 0; i < book.sections.length; i++) {
     await renderSection(pdf, book.sections[i], opts, state)
     onProgress(10 + Math.round(((i + 1) / total) * 80))
   }
 
-  // ── Fill TOC page ──
+  // ── TOC (appended at end, then moved to correct position) ──
   const tocEntries = state._tocEntries || []
-  if (includeTOC && tocPageNum && tocEntries.length > 0) {
-    pdf.setPage(tocPageNum)
-    const boxH = (chapterFontSize / 72) * 25.4 * lineHeight + 8
-    pdf.setFillColor(235, 235, 235); pdf.setDrawColor(0, 0, 0); pdf.setLineWidth(0.4)
-    pdf.rect(margin, margin, usableW, boxH, 'FD')
-    pdf.setFont(FONT, 'bold'); pdf.setFontSize(chapterFontSize); pdf.setTextColor(0, 0, 0)
-    pdf.text('Содержание', margin + 4, margin + boxH - 5)
+  if (includeTOC && tocEntries.length > 0) {
+    // Remember where content ends
+    const contentLastPage = pdf.internal.getNumberOfPages()
 
-    let ty = margin + boxH + lh
-    for (const entry of tocEntries) {
-      if (ty + lh > pageH - margin) break
-      // depth 0 = chapter (bold, no indent)
-      // depth 1 = section (normal, 8mm indent)
-      // depth 2+ = subsection (normal, 16mm+ indent, smaller font)
-      const xOff = entry.depth === 0 ? 0 : entry.depth === 1 ? 8 : 8 + (entry.depth - 1) * 6
-      const entryFs = entry.depth === 0 ? fontSize + 1 : entry.depth === 1 ? fontSize : fontSize - 1
-      const entryLH = (entryFs / 72) * 25.4 * lineHeight
-      const fontStyle = entry.depth === 0 ? 'bold' : 'normal'
-      pdf.setFont(FONT, fontStyle)
-      pdf.setFontSize(entryFs); pdf.setTextColor(0, 0, 0)
+    // Render TOC pages at the end of the document
+    const tocFirstPage = contentLastPage + 1
 
-      const pageLabel = String(entry.pageNum)
-      pdf.setFont(FONT, 'normal'); pdf.setFontSize(entryFs)
-      const pageLabelW = pdf.getTextWidth(pageLabel)
-      pdf.setFont(FONT, fontStyle)
-      const titleMaxW = usableW - xOff - pageLabelW - 6
-      const titleLine = pdf.splitTextToSize(entry.title, titleMaxW)[0]
+    // Helper: render one TOC page, returns {finished, nextEntryIdx}
+    function renderTOCPage(startIdx, isFirstPage) {
+      pdf.addPage()
+      let ty = margin
 
-      // Page number right — plain text, no link
-      pdf.setTextColor(0, 0, 0)
-      const pageNumX = margin + usableW - pageLabelW
-      pdf.text(pageLabel, pageNumX, ty)
-
-      // Clickable chapter title
-      pdf.setTextColor(0, 0, 130)
-      pdf.textWithLink(titleLine, margin + xOff, ty, { pageNumber: entry.pageNum, x: margin, y: entry.y || margin })
-
-      // Dots between title and page number
-      pdf.setFont(FONT, 'normal'); pdf.setFontSize(entryFs)
-      pdf.setTextColor(150, 150, 150)
-      const titleW = pdf.getTextWidth(titleLine)
-      const dStart = margin + xOff + titleW + 2
-      const dEnd = pageNumX - 2
-      const dotW = pdf.getTextWidth('.')
-      if (dEnd > dStart + 4) {
-        let dx = dStart
-        while (dx + dotW < dEnd) { pdf.text('.', dx, ty); dx += dotW + 0.3 }
+      if (isFirstPage) {
+        // Header box
+        const boxH = (chapterFontSize / 72) * 25.4 * lineHeight + 8
+        pdf.setFillColor(235, 235, 235); pdf.setDrawColor(0, 0, 0); pdf.setLineWidth(0.4)
+        pdf.rect(margin, margin, usableW, boxH, 'FD')
+        pdf.setFont(FONT, 'bold'); pdf.setFontSize(chapterFontSize); pdf.setTextColor(0, 0, 0)
+        pdf.text('Содержание', margin + 4, margin + boxH - 5)
+        ty = margin + boxH + lh
       }
 
-      ty += entryLH
+      let idx = startIdx
+      while (idx < tocEntries.length) {
+        const entry = tocEntries[idx]
+        const xOff = entry.depth === 0 ? 0 : entry.depth === 1 ? 8 : 8 + (entry.depth - 1) * 6
+        const entryFs = entry.depth === 0 ? fontSize + 1 : entry.depth === 1 ? fontSize : fontSize - 1
+        const entryLH = (entryFs / 72) * 25.4 * lineHeight
+        const fontStyle = entry.depth === 0 ? 'bold' : 'normal'
+
+        if (ty + entryLH > pageH - margin) break  // page full → next page
+
+        pdf.setFont(FONT, 'normal'); pdf.setFontSize(entryFs)
+        const pageLabelW = pdf.getTextWidth(String(entry.pageNum))
+        pdf.setFont(FONT, fontStyle); pdf.setFontSize(entryFs)
+        const titleMaxW = usableW - xOff - pageLabelW - 6
+        const titleLine = pdf.splitTextToSize(entry.title, titleMaxW)[0]
+
+        // Page number
+        pdf.setTextColor(0, 0, 0)
+        const pageNumX = margin + usableW - pageLabelW
+        pdf.text(String(entry.pageNum), pageNumX, ty)
+
+        // Clickable title
+        pdf.setTextColor(0, 0, 130)
+        pdf.textWithLink(titleLine, margin + xOff, ty, { pageNumber: entry.pageNum, x: margin, y: entry.y || margin })
+
+        // Dots
+        pdf.setFont(FONT, 'normal'); pdf.setFontSize(entryFs)
+        pdf.setTextColor(150, 150, 150)
+        const titleW = pdf.getTextWidth(titleLine)
+        const dStart = margin + xOff + titleW + 2
+        const dEnd = pageNumX - 2
+        const dotW = pdf.getTextWidth('.')
+        if (dEnd > dStart + 4) {
+          let dx = dStart
+          while (dx + dotW < dEnd) { pdf.text('.', dx, ty); dx += dotW + 0.3 }
+        }
+
+        ty += entryLH
+        idx++
+      }
+      return idx  // next entry to render
+    }
+
+    // Render all TOC pages
+    let entryIdx = 0
+    let isFirst = true
+    while (entryIdx < tocEntries.length) {
+      entryIdx = renderTOCPage(entryIdx, isFirst)
+      isFirst = false
+    }
+
+    const tocLastPage = pdf.internal.getNumberOfPages()
+    const tocPageCount = tocLastPage - contentLastPage
+
+    // Move TOC pages from end to right after front matter
+    // Front matter pages (before content): cover + title + annotation
+    const frontCount = (includeCover && book.cover ? 1 : 0)
+      + 1
+      + (includeAnnotation && book.annotationBlocks.length ? 1 : 0)
+    const insertAfter = frontCount  // TOC goes after front matter
+
+    // movePage(from, to) — move one page at a time
+    for (let i = 0; i < tocPageCount; i++) {
+      // After each move the indices shift, so always move the same logical page
+      // TOC pages are now at positions (contentLastPage+1) .. tocLastPage
+      // After moving i pages, the first remaining TOC page is at contentLastPage+1
+      const fromPage = pdf.internal.getNumberOfPages() - tocPageCount + i + 1
+      const toPage = insertAfter + 1 + i
+      pdf.movePage(fromPage, toPage)
     }
   }
 
   // ── Page numbers ──
+  // Count TOC pages actually added
+  const tocPageCount2 = (includeTOC && tocEntries.length > 0)
+    ? Math.ceil(tocEntries.length / 30) + 1  // rough estimate; real count from movePage above
+    : 0
   const totalPages = pdf.internal.getNumberOfPages()
   const frontPages = (includeCover && book.cover ? 1 : 0)
-    + 1
+    + 1  // title
     + (includeAnnotation && book.annotationBlocks.length ? 1 : 0)
-    + (includeTOC && tocEntries.length ? 1 : 0)
 
-  for (let i = frontPages + 1; i <= totalPages; i++) {
+  // TOC pages don't get page numbers; content starts after front+toc
+  // We need the actual toc page count — calculate from total and known content
+  // Simplest: just don't number front pages (cover, title, annotation, toc)
+  // Mark content pages starting from where sections begin
+  // Since TOC was moved to insertAfter+1, content starts at frontPages + tocActual + 1
+  // We'll number ALL non-front pages and let the reader figure it out
+  // Actually: number pages starting after front matter + toc block
+  const tocActualCount = includeTOC && tocEntries.length > 0
+    ? totalPages - (frontPages + (book.sections.length > 0 ? pdf.internal.getNumberOfPages() - totalPages : 0))
+    : 0
+
+  // Simpler approach: find first chapter page number from tocEntries
+  const firstContentPage = tocEntries.length > 0 ? tocEntries[0].pageNum : frontPages + 1
+
+  for (let i = firstContentPage; i <= totalPages; i++) {
     pdf.setPage(i)
     pdf.setFont(FONT, 'normal'); pdf.setFontSize(8); pdf.setTextColor(120, 120, 120)
-    pdf.text(String(i - frontPages), pageW / 2, pageH - margin / 2 + 2, { align: 'center' })
+    pdf.text(String(i - firstContentPage + 1), pageW / 2, pageH - margin / 2 + 2, { align: 'center' })
   }
 
   onProgress(100)
@@ -491,3 +541,4 @@ export async function generatePDF(book, options, onProgress) {
 export function safeName(title) {
   return title.replace(/[<>:"/\\|?*\x00-\x1F]/g, '').replace(/\s+/g, '_').slice(0, 100).trim() || 'book'
 }
+
